@@ -6,7 +6,7 @@ import numpy as np
 import os
 import folder_paths 
 import node_helpers
-
+import hashlib
 
 # Tensor to PIL
 def tensor2pil(image):
@@ -50,8 +50,8 @@ class EditMask:
                      
                      },
 
-                      "optional":{
-                            "image_update": ("IMAGE_",)
+                    "optional":{
+                            "image_update": ("IMAGE_FILE",)
                         },
                    
                 }
@@ -59,6 +59,8 @@ class EditMask:
     CATEGORY = "♾️Mixlab/Mask"
 
     RETURN_TYPES = ("IMAGE", "MASK")
+    RETURN_NAMES = ("image", "mask")
+
     FUNCTION = "edit"
 
     OUTPUT_NODE = True
@@ -74,16 +76,28 @@ class EditMask:
                 images=image_update['images']
                 filename=images[0]['filename']
                 subfolder=images[0]['subfolder']
+                type=images[0]['type']
                 name, base_dir=folder_paths.annotated_filepath(filename)
-                base_dir = folder_paths.get_input_directory()  
-                print(base_dir,subfolder, name)
+                if type.endswith("output"):
+                    base_dir = folder_paths.get_output_directory() 
+                elif type.endswith("input"):
+                    base_dir = folder_paths.get_input_directory() 
+                elif type.endswith("temp"):
+                    base_dir = folder_paths.get_temp_directory() 
+                #base_dir = folder_paths.get_input_directory()  
+                # print(base_dir,subfolder, name)
                 image_path = os.path.join(base_dir,subfolder, name)
         
         if image_path==None:
             image_path,images=create_temp_file(image)
-        print('#image_path',image_path)
+
+        print('#image_path',os.path.exists(image_path),image_path)
         # image_path = folder_paths.get_annotated_filepath(image) #文件名
         
+        if not os.path.exists(image_path):
+            image_path,images=create_temp_file(image)
+
+
         img = node_helpers.pillow(Image.open, image_path)
         
         output_images = []
@@ -112,7 +126,9 @@ class EditMask:
                 mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
                 mask = 1. - torch.from_numpy(mask)
             else:
-                mask = torch.zeros((64,64), dtype=torch.float32, device="cpu")
+                # 尺寸不对，需要按照image来
+                mask = torch.zeros((h, w), dtype=torch.float32, device="cpu")
+
             output_images.append(image)
             output_masks.append(mask.unsqueeze(0))
 
@@ -127,3 +143,11 @@ class EditMask:
 
         # return (output_image, output_mask)
     
+    @classmethod
+    def IS_CHANGED(s, image):
+        image_path = folder_paths.get_annotated_filepath(image)
+        m = hashlib.sha256()
+        with open(image_path, 'rb') as f:
+            m.update(f.read())
+        print('IS_CHANGED',image_path)
+        return m.digest().hex()
