@@ -12,6 +12,19 @@ import hashlib
 def tensor2pil(image):
     return Image.fromarray(np.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
 
+# tensor 取hash值
+def tensor_to_hash(tensor):
+    # 将 Tensor 转换为 NumPy 数组
+    np_array = tensor.cpu().numpy()
+    
+    # 将 NumPy 数组转换为字节数据
+    byte_data = np_array.tobytes()
+    
+    # 计算哈希值
+    hash_value = hashlib.md5(byte_data).hexdigest()
+    
+    return hash_value
+
 
 def create_temp_file(image):
     output_dir = folder_paths.get_temp_directory()
@@ -43,6 +56,10 @@ def create_temp_file(image):
 # image - tensor - 文件路径
 # loadImage的方法（ 文件路径 - image-mask ）
 class EditMask:
+
+    def __init__(self):
+        self.image_id = None
+
     @classmethod
     def INPUT_TYPES(s):
         return {"required":
@@ -67,8 +84,19 @@ class EditMask:
 
     def edit(self, image,image_update=None):
 
+        # 根据image输入来判断是否是新的图片
+        if self.image_id==None:
+            self.image_id=tensor_to_hash(image)
+            image_update=None
+        else:
+            image_id=tensor_to_hash(image)
+            if image_id!=self.image_id:
+                image_update=None
+                self.image_id=image_id
+
+
         image_path=None
-        print('#image_update',image_update)
+        # print('#image_update',self.image_id,image_update)
         if image_update==None:
             print('--')
         else:
@@ -142,12 +170,3 @@ class EditMask:
         return {"ui":{"images": images},"result": (output_image, output_mask)}
 
         # return (output_image, output_mask)
-    
-    @classmethod
-    def IS_CHANGED(s, image):
-        image_path = folder_paths.get_annotated_filepath(image)
-        m = hashlib.sha256()
-        with open(image_path, 'rb') as f:
-            m.update(f.read())
-        print('IS_CHANGED',image_path)
-        return m.digest().hex()
