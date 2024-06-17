@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-edit-mask"
+description = "Nodes:Edit Mask"
+version = "1.0.0"
+license = "LICENSE"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/shadowcz007/comfyui-edit-mask"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyui-edit-mask"
+Icon = ""
